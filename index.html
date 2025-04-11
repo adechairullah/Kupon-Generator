@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Kupon Qurban</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    html, body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    @media print {
+      .no-print { display: none; }
+      .page-break { page-break-after: always; }
+
+      @page {
+        size: A4 landscape;
+        margin: 10mm;
+      }
+
+      body {
+        margin: 0;
+      }
+    }
+
+    .no-print {
+      margin: 15px;
+    }
+
+    .kupon-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .kupon {
+      width: 32.3%;
+      height: 50%;
+      margin-bottom: 1%;
+      background: linear-gradient(to right, #e0d9c3, #fdfbe7);
+      border: 1px solid #b0a16e;
+      border-radius: 8px;
+      display: flex;
+      font-size: 13px;
+      box-sizing: border-box;
+      padding: 8px;
+    }
+
+    .kupon .nomor {
+      background-color: #7c6a3f;
+      color: white;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      text-align: center;
+      font-weight: bold;
+      font-size: 15px;
+      border-radius: 5px 0 0 5px;
+      padding: 8px 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .kupon .info {
+      padding: 0 8px;
+      flex-grow: 1;
+    }
+
+    .kupon .info h3 {
+      margin: 0 0 4px 0;
+      color: #5a3b1d;
+      font-size: 15px;
+    }
+
+    .kupon .info .label {
+      font-weight: bold;
+      color: #444;
+    }
+
+    .kupon .kanan {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    .kupon .logo {
+      width: 50px;
+      margin-bottom: auto;
+    }
+
+    .kupon .gambar {
+      width: 50px;
+      align-self: flex-end;
+    }
+
+    .kupon .qrcode {
+      width: 55px;
+      height: 55px;
+      margin-top: 4px;
+    }
+
+    .kupon small {
+      display: block;
+      margin-top: 5px;
+      font-size: 10px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <h2 class="no-print">Upload Excel Kupon Qurban</h2>
+  <input type="file" id="excelFile" accept=".xlsx, .xls" class="no-print" />
+  <button onclick="window.print()" class="no-print">🖨️ Cetak Kupon</button>
+
+  <div id="kuponContainer"></div>
+
+  <script>
+    document.getElementById('excelFile').addEventListener('change', function(e) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet);
+        const container = document.getElementById('kuponContainer');
+        container.innerHTML = '';
+
+        let batchHTML = '';
+
+        json.forEach((row, index) => {
+          let nomor = row['Nomor Kupon'] || '';
+          nomor = nomor.toString().padStart(3, '0');
+          const tanggal = row['Tanggal'] || '';
+          const waktu = row['Waktu'] || '';
+          const tempat = row['Tempat'] || '';
+
+          const qrId = `qr-${index}`;
+
+          const kuponHTML = `
+            <div class="kupon">
+              <div class="nomor">${nomor}</div>
+              <div class="info">
+                <h3>KUPON Daging Qurban 2025</h3>
+				<small>Mushalla Jamiatul Hidayah, Rawang Ketaping</small>
+                <div><span class="label">Tanggal:</span> ${tanggal}</div>
+                <div><span class="label">Waktu:</span> ${waktu}</div>
+                <div><span class="label">Tempat:</span> ${tempat}</div>
+                <small>*Mohon kupon ini dibawa saat pengambilan daging qurban</small>
+              </div>
+              <div class="kanan">
+                <div class="qrcode" id="${qrId}"></div><br>
+                <img src="images/anak.png" alt="anak kambing" class="gambar" />
+              </div>
+            </div>
+          `;
+
+          batchHTML += kuponHTML;
+
+          // Setiap 12 kupon, buat satu halaman
+          if ((index + 1) % 12 === 0 || index === json.length - 1) {
+            container.innerHTML += `<div class="kupon-grid">${batchHTML}</div><div class="page-break"></div>`;
+            batchHTML = '';
+          }
+        });
+
+        // Delay sedikit agar semua elemen kupon muncul di DOM
+        setTimeout(() => {
+          json.forEach((data, index) => {
+            const el = document.getElementById(`qr-${index}`);
+            if (!el) return;
+
+            const nomor = data['Nomor Kupon']?.toString().padStart(3, '0') || '';
+            const tanggal = data['Tanggal'] || '';
+            const waktu = data['Waktu'] || '';
+            const tempat = data['Tempat'] || '';
+
+            const qrText = `Nomor: ${nomor} KUPON ASLI`;
+
+            new QRCode(el, {
+              text: qrText,
+              width: 55,
+              height: 55,
+              colorDark: "#000000",
+              colorLight: "#ffffff"
+            });
+          });
+        }, 500);
+      };
+      reader.readAsArrayBuffer(e.target.files[0]);
+    });
+  </script>
+
+</body>
+</html>
